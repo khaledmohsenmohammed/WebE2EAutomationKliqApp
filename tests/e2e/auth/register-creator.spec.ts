@@ -12,7 +12,6 @@ test.describe('Creator registration', () => {
     registerPage,
     otpPage,
     onboardingPage,
-    page,
   }) => {
     const data = buildCreatorRegistrationData();
     const progress = createInitialProgress();
@@ -53,6 +52,5 @@ test.describe('Creator registration', () => {
       progress.accountCreated,
       'account should have been fully created',
     ).toBe(true);
-    await page.pause();
   });
 });
