@@ -157,3 +157,14 @@ export function requireTestOtpCode(): string {
   }
   return code;
 }
+
+/**
+ * Password used for every account `registrationData.factory.ts` generates.
+ * Lives only in `.env` (never in source/JSON) via `GENERATED_ACCOUNT_PASSWORD`.
+ */
+export function requireGeneratedAccountPassword(): string {
+  return required(
+    'GENERATED_ACCOUNT_PASSWORD',
+    'Missing GENERATED_ACCOUNT_PASSWORD. Copy .env.example to .env and set it (never commit it or hardcode it in source).',
+  );
+}
