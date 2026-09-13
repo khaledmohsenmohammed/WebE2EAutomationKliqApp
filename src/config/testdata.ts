@@ -8,6 +8,8 @@ export type AppEnvName = 'sandbox' | 'dev' | 'production';
 export type EnvironmentConfig = {
   webBaseUrl: string;
   apiBaseUrl: string;
+  /** Static OTP accepted by non-production environments (sandbox/dev only — never set for production). */
+  testOtpCode?: string;
 };
 
 export type UserConfig = {

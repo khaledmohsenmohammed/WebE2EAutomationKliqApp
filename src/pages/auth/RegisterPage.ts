@@ -1,4 +1,4 @@
-import { type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from '../base/BasePage';
 
 /**
@@ -16,6 +16,8 @@ export class RegisterPage extends BasePage {
   readonly emailInput: Locator;
   readonly phoneInput: Locator;
   readonly countryCodeButton: Locator;
+  /** Row in the country-code dropdown list, e.g. "🇸🇦 Saudi Arabia +966". */
+  readonly saudiArabiaOption: Locator;
   readonly passwordInput: Locator;
   readonly showPasswordButton: Locator;
   readonly addProfileButton: Locator;
@@ -37,6 +39,7 @@ export class RegisterPage extends BasePage {
     this.emailInput = page.getByPlaceholder(/enter your email/i);
     this.phoneInput = page.getByPlaceholder('+966 342 423 42');
     this.countryCodeButton = page.getByRole('button', { name: '🇸🇦' });
+    this.saudiArabiaOption = page.getByRole('button', { name: /saudi arabia/i });
     this.passwordInput = page.getByPlaceholder(/create a secure password/i);
     this.showPasswordButton = page.getByRole('button', { name: /show password|hide password/i });
     this.addProfileButton = page.getByRole('button', { name: /add profile/i });
@@ -59,6 +62,34 @@ export class RegisterPage extends BasePage {
     await this.creatorsRoleButton.click();
   }
 
+  /**
+   * Opens the country-code dropdown and picks Saudi Arabia (+966). Not
+   * needed by default — Saudi Arabia is already the field's default country
+   * — but kept for specs that need to switch away from it and back.
+   */
+  async selectSaudiArabiaCountryCode(): Promise<void> {
+    await this.countryCodeButton.click();
+    await this.saudiArabiaOption.click();
+  }
+
+  async expectSaudiCountryCodeSet(): Promise<void> {
+    await expect(this.phoneInput).toHaveValue(/^\+966/);
+  }
+
+  /**
+   * Types the local number only — e.g. `583617820` (9 digits, starting with
+   * 5) — after the field's pre-filled `+966`. The field's value already
+   * starts with `+966` by default; `.fill()` would replace the whole value
+   * and silently drop the country code, so this clicks in, moves the cursor
+   * to the end, and types instead.
+   */
+  async fillPhoneNumber(localNumber: string): Promise<void> {
+    await this.expectSaudiCountryCodeSet();
+    await this.phoneInput.click();
+    await this.phoneInput.press('End');
+    await this.phoneInput.pressSequentially(localNumber);
+  }
+
   async registerBrand(input: {
     brandName: string;
     fullName: string;
@@ -70,7 +101,7 @@ export class RegisterPage extends BasePage {
     await this.brandNameInput.fill(input.brandName);
     await this.fullNameInput.fill(input.fullName);
     await this.emailInput.fill(input.email);
-    await this.phoneInput.fill(input.phone);
+    await this.fillPhoneNumber(input.phone);
     await this.passwordInput.fill(input.password);
     await this.joinNowButton.click();
   }
@@ -86,7 +117,7 @@ export class RegisterPage extends BasePage {
     await this.fullNameInput.fill(input.fullName);
     await this.socialHandleInput.fill(input.socialHandle);
     await this.emailInput.fill(input.email);
-    await this.phoneInput.fill(input.phone);
+    await this.fillPhoneNumber(input.phone);
     await this.passwordInput.fill(input.password);
     await this.joinNowButton.click();
   }
