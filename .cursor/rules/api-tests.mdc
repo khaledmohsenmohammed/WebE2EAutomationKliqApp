@@ -1,0 +1,21 @@
+---
+description: API clients and specs use env-based URLs and body assertions
+globs: src/api/**/*.ts,tests/api/**/*.ts
+alwaysApply: false
+---
+
+# API tests
+
+- Call `AuthApi` or a future client. Do not `request.post` host URLs from specs.
+- Build paths from `API_BASE_URL` via `env.ts`. Never hardcode environments.
+- Assert HTTP status and response body shape.
+
+```typescript
+// BAD
+await request.post('https://prod.example.com/api/v1/auth/login/');
+
+// GOOD
+const response = await authApi.login(brandEmail, brandPassword);
+expect(response.ok()).toBeTruthy();
+expect((await response.json()).tokens?.access_token).toBeTruthy();
+```

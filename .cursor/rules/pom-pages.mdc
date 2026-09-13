@@ -1,0 +1,27 @@
+---
+description: Page Object Model conventions for src/pages
+globs: src/pages/**/*.ts
+alwaysApply: false
+---
+
+# Page objects
+
+- One class per screen. Extend `BasePage`.
+- Declare locators as class fields. Prefer role, label, then placeholder, then test id.
+- Expose actions and page-level assertions. Do not leak locators into other pages.
+
+```typescript
+// BAD
+async login(page: Page, email: string) {
+  await page.locator('#email').fill(email);
+}
+
+// GOOD
+readonly emailInput = this.page.getByLabel(/email/i);
+
+async login(email: string, password: string) {
+  await this.emailInput.fill(email);
+  await this.passwordInput.fill(password);
+  await this.submitButton.click();
+}
+```

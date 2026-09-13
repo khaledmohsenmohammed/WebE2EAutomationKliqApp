@@ -1,0 +1,19 @@
+---
+description: Read project docs, keep progress current, English code, no secrets
+alwaysApply: true
+---
+
+# Core project rules
+
+- Before changing tests, pages, or API clients, read `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`, and `docs/PROJECT-RULES.md`.
+- After meaningful work, update `docs/PROGRESS.md`.
+- Write code, comments, and docs in English.
+- Never commit `.env`, tokens, or real passwords.
+
+```typescript
+// BAD
+const token = 'eyJhbGciOi...';
+
+// GOOD
+const { brandEmail, brandPassword } = requireApiEnv();
+```

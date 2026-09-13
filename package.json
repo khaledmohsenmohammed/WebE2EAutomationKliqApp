@@ -1,0 +1,19 @@
+{
+  "name": "web-e2e-automation-kliqapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright E2E and API test platform for KliqApp",
+  "scripts": {
+    "test": "playwright test",
+    "test:e2e": "playwright test --project=e2e",
+    "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^22.0.0",
+    "dotenv": "^16.4.0",
+    "typescript": "^5.6.0"
+  }
+}
