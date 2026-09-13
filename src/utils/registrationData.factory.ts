@@ -3,7 +3,8 @@ import { faker } from '@faker-js/faker';
 /**
  * Random registration inputs for the brand/creator sign-up forms
  * (`src/pages/auth/RegisterPage.ts`). Generated fresh per call so specs never
- * collide on email/handle uniqueness across runs.
+ * collide on email/handle uniqueness across runs. `password` is the one
+ * fixed field — every generated account shares `DEFAULT_PASSWORD` below.
  */
 
 export type BrandRegistrationData = {
@@ -34,13 +35,8 @@ function randomPhone(): string {
   return `5${faker.string.numeric(8)}`;
 }
 
-/** Guarantees upper/lower/digit/symbol so it clears typical password-complexity rules. */
-function randomPassword(): string {
-  const upper = faker.string.alpha({ length: 1, casing: 'upper' });
-  const lower = faker.string.alpha({ length: 6, casing: 'lower' });
-  const digits = faker.string.numeric(3);
-  return `${upper}${lower}${digits}!`;
-}
+/** Fixed password for every generated account — keeps generated credentials predictable across runs. */
+const DEFAULT_PASSWORD = 'P@ssw0rd123';
 
 /** Unique-enough email: real-looking name plus a short random suffix. */
 function randomEmail(firstName: string, lastName: string): string {
@@ -61,7 +57,7 @@ export function buildBrandRegistrationData(overrides?: Partial<BrandRegistration
     fullName: `${firstName} ${lastName}`,
     email: randomEmail(firstName, lastName),
     phone: randomPhone(),
-    password: randomPassword(),
+    password: DEFAULT_PASSWORD,
     ...overrides,
   };
 }
@@ -76,7 +72,7 @@ export function buildCreatorRegistrationData(overrides?: Partial<CreatorRegistra
     socialHandle: `@${faker.internet.username({ firstName, lastName }).toLowerCase()}`,
     email: randomEmail(firstName, lastName),
     phone: randomPhone(),
-    password: randomPassword(),
+    password: DEFAULT_PASSWORD,
     ...overrides,
   };
 }
