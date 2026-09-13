@@ -6,9 +6,11 @@ alwaysApply: false
 
 # Page objects
 
-- One class per screen. Extend `BasePage`.
+- One class per screen under `src/pages/{auth,brand,creator}/`. File name matches the class (`LoginPage.ts`).
+- Extend `BasePage`. Sidebar and header come from `BasePage` composition — do not re-declare those locators.
+- Settings sub-items are sections (in-place swap), not pages. Shared card/table/tab UI lives in `src/pages/shared/`.
 - Declare locators as class fields. Prefer role, label, then placeholder, then test id.
-- Expose actions and page-level assertions. Do not leak locators into other pages.
+- Expose actions and page-level assertions. Specs must not use raw locators.
 
 ```typescript
 // BAD

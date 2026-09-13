@@ -1,0 +1,63 @@
+import { expect, type Locator, type Page } from '@playwright/test';
+import { ChatPanelComponent } from './components/ChatPanelComponent';
+import { HeaderComponent } from './components/HeaderComponent';
+import { NotificationsPanelComponent } from './components/NotificationsPanelComponent';
+import { SidebarComponent } from './components/SidebarComponent';
+
+/**
+ * Shared page helpers: navigation, waits, toasts, and dialogs.
+ * Logged-in screens inherit `sidebar` and `header` via composition on this class.
+ */
+export class BasePage {
+  readonly sidebar: SidebarComponent;
+  readonly header: HeaderComponent;
+  readonly notificationsPanel: NotificationsPanelComponent;
+  readonly chatPanel: ChatPanelComponent;
+
+  constructor(protected readonly page: Page) {
+    this.sidebar = new SidebarComponent(page);
+    this.header = new HeaderComponent(page);
+    this.notificationsPanel = new NotificationsPanelComponent(page);
+    this.chatPanel = new ChatPanelComponent(page);
+  }
+
+  async goto(path: string): Promise<void> {
+    await this.page.goto(path);
+  }
+
+  async waitForUrl(url: string | RegExp): Promise<void> {
+    await this.page.waitForURL(url);
+  }
+
+  async waitForNetworkIdle(): Promise<void> {
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  /**
+   * Toast / snackbar container.
+   * TODO: verify locator — confirm whether the app uses `alert`, `status`, or a custom region.
+   */
+  toast(message?: string | RegExp): Locator {
+    const region = this.page.getByRole('alert').or(this.page.getByRole('status'));
+    return message ? region.filter({ hasText: message }) : region;
+  }
+
+  dialog(name?: string | RegExp): Locator {
+    return name
+      ? this.page.getByRole('dialog', { name })
+      : this.page.getByRole('dialog');
+  }
+
+  async expectToastVisible(message?: string | RegExp): Promise<void> {
+    await expect(this.toast(message).first()).toBeVisible();
+  }
+
+  async expectDialogVisible(name?: string | RegExp): Promise<void> {
+    await expect(this.dialog(name)).toBeVisible();
+  }
+
+  async dismissDialog(): Promise<void> {
+    const dialog = this.dialog();
+    await dialog.getByRole('button', { name: /close|cancel|ok|done/i }).first().click();
+  }
+}
