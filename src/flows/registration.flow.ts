@@ -6,8 +6,8 @@ import type { RegistrationData } from '../utils/registrationData.factory';
 /**
  * Step flags for a brand/creator registration run. Updated in place as
  * `registerAndOnboard` progresses, so a failed run still tells you exactly
- * which step it reached — persist it (e.g. via `saveGenerated`) even when the
- * flow throws.
+ * which step it reached — persist it (e.g. via `appendGenerated`) even when
+ * the flow throws.
  */
 export type RegistrationProgress = {
   formSubmitted: boolean;
@@ -18,6 +18,21 @@ export type RegistrationProgress = {
   updatedAt: string;
   error?: string;
 };
+
+/**
+ * One row of the shared `testdata/generated/registrations.json` log (see
+ * `appendGenerated` in `src/config/testdata.ts`). `type` is promoted out of
+ * `data.role` to a top-level field so entries can be filtered by role
+ * without drilling into `data`.
+ */
+export type RegistrationLogEntry = {
+  type: RegistrationData['role'];
+  data: RegistrationData;
+  otpCode: string;
+  progress: RegistrationProgress;
+};
+
+export type RegistrationLog = Record<string, RegistrationLogEntry>;
 
 export function createInitialProgress(): RegistrationProgress {
   const now = new Date().toISOString();

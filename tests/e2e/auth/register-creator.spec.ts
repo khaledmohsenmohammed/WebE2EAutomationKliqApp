@@ -1,5 +1,5 @@
 import { requireTestOtpCode } from '../../../src/config/env';
-import { saveGenerated } from '../../../src/config/testdata';
+import { appendGenerated } from '../../../src/config/testdata';
 import {
   createInitialProgress,
   registerAndOnboard,
@@ -29,8 +29,11 @@ test.describe('Creator registration', () => {
       );
     } finally {
       // Persist what was generated and how far the run got, so a failed run
-      // still shows exactly which step (form/OTP/onboarding) broke.
-      saveGenerated(`registration-creator-${Date.now()}`, {
+      // still shows exactly which step (form/OTP/onboarding) broke. Appends
+      // to the shared testdata/generated/registrations.json log rather than
+      // writing a new file per run.
+      await appendGenerated('registrations', {
+        type: data.role,
         data,
         otpCode,
         progress,
