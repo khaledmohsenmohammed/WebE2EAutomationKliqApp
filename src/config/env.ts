@@ -141,3 +141,30 @@ export function requireUser(userKey?: string) {
 export function requireSecret(name: string): string {
   return required(name);
 }
+
+/**
+ * Static OTP accepted by non-production environments. Set per-environment
+ * via `testdata/environments.json` (`testOtpCode`), overridable with
+ * `TEST_OTP_CODE` in `.env`. Never set for production — a missing value
+ * throws rather than letting a real OTP flow be skipped silently.
+ */
+export function requireTestOtpCode(): string {
+  const code = optional('TEST_OTP_CODE') || environment.testOtpCode || '';
+  if (!code) {
+    throw new Error(
+      `Missing test OTP code for env "${appEnv}". Set testOtpCode in testdata/environments.json or TEST_OTP_CODE in .env (sandbox/dev only).`,
+    );
+  }
+  return code;
+}
+
+/**
+ * Password used for every account `registrationData.factory.ts` generates.
+ * Lives only in `.env` (never in source/JSON) via `GENERATED_ACCOUNT_PASSWORD`.
+ */
+export function requireGeneratedAccountPassword(): string {
+  return required(
+    'GENERATED_ACCOUNT_PASSWORD',
+    'Missing GENERATED_ACCOUNT_PASSWORD. Copy .env.example to .env and set it (never commit it or hardcode it in source).',
+  );
+}

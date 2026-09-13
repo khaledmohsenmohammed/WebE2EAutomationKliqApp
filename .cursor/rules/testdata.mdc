@@ -10,6 +10,7 @@ alwaysApply: false
 - Accounts: `testdata/users.json` — switch with `activeUser` or `ACTIVE_USER`.
 - Passwords: `.env` only via each user's `passwordEnv` key. Never store passwords in JSON.
 - Runtime artifacts: `saveGenerated()` → `testdata/generated/` (gitignored files).
+- Accumulating log: `appendGenerated()` → single shared JSON file (e.g. `testdata/generated/registrations.json`), one entry per run keyed by ISO timestamp, includes a `type` field (brand/creator).
 
 ```typescript
 // BAD

@@ -3,11 +3,13 @@
   "environments": {
     "sandbox": {
       "webBaseUrl": "https://appsandbox.kliqapp.io",
-      "apiBaseUrl": ""
+      "apiBaseUrl": "",
+      "testOtpCode": "200937"
     },
     "dev": {
       "webBaseUrl": "https://appdev.kliqapp.io",
-      "apiBaseUrl": ""
+      "apiBaseUrl": "",
+      "testOtpCode": "200937"
     },
     "production": {
       "webBaseUrl": "https://app.kliqapp.io",

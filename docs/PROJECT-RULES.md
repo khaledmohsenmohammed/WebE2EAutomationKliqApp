@@ -27,6 +27,7 @@
 - Default `ENV` is `sandbox`. Switch with `ENV=dev` or `ENV=production`.
 - Switch account with `ACTIVE_USER` or `users.json` → `activeUser`.
 - Persist runtime-created data with `saveGenerated()` under `testdata/generated/`.
+- For an accumulating dated/typed record (e.g. registration runs), use `appendGenerated(fileName, entry)` instead — merges into one shared JSON file under `testdata/generated/`, keyed by ISO timestamp.
 - Do not point tests at production unless that is explicit.
 
 ## Secrets
