@@ -1,7 +1,7 @@
 import { test as base } from '@playwright/test';
 import { AuthApi } from '../api/auth.api';
 import { requireApiEnv } from '../config/env';
-import { LoginPage } from '../pages/login.page';
+import { LoginPage } from '../pages/auth/LoginPage';
 
 type Fixtures = {
   loginPage: LoginPage;

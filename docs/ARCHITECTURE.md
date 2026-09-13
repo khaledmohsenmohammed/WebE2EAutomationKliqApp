@@ -11,7 +11,7 @@ testdata/generated/          Runtime data created by tests (gitignored contents)
 src/config/env.ts            Loads ENV + secrets from .env, merges testdata JSON
 src/config/testdata.ts       JSON readers + saveGenerated helpers
 src/fixtures/test.fixture.ts Shared fixtures: loginPage, authApi
-src/pages/                   UI page objects (locators + actions)
+src/pages/                   UI page objects (POM): base, auth, brand, creator, shared
 src/api/                     Backend API clients
 tests/e2e/                   Browser specs (use page objects only)
 tests/api/                   API specs (use API clients only)
@@ -22,9 +22,11 @@ docs/                        Architecture, progress, and project rules
 ## UI flow
 
 1. Specs import `test` / `expect` from `src/fixtures/test.fixture.ts`.
-2. The `loginPage` fixture gives a `LoginPage` instance.
-3. Locators live on the page class. Specs call actions (`open`, `login`) and page assertions (`expectLoggedIn`).
-4. Playwright `baseURL` comes from `testdata/environments.json` for the current `ENV` (optional `.env` override).
+2. The `loginPage` fixture gives a `LoginPage` instance (`src/pages/auth/LoginPage.ts`).
+3. Locators live on page/component classes. Specs call actions (`open`, `login`) and page assertions (`expectLoggedIn`).
+4. Logged-in pages extend `BasePage`, which composes `sidebar` and `header` (do not re-declare those locators).
+5. Settings sub-items are **sections** (in-place content swap), not separate routes.
+6. Playwright `baseURL` comes from `testdata/environments.json` for the current `ENV` (optional `.env` override).
 
 Locator priority: `getByRole` / `getByLabel` / `getByPlaceholder`, then `getByTestId`. No CSS or XPath in spec files.
 

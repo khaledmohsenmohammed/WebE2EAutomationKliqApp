@@ -7,7 +7,8 @@
 
 ## Page Object Model
 
-- One page class per screen under `src/pages/`.
+- One page class per screen under `src/pages/{auth,brand,creator}/`. Settings sub-items are sections, not pages.
+- Shared shell (sidebar/header) is composed on `BasePage`. Repeated campaign card/table/tab UI lives in `src/pages/shared/`.
 - Define locators as class fields. Specs must not declare locators.
 - Pages expose actions and page-level assertions. Keep flows in specs.
 
