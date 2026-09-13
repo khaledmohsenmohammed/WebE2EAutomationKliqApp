@@ -20,7 +20,7 @@ docs/                      Architecture, progress, and project rules
 1. Specs import `test` / `expect` from `src/fixtures/test.fixture.ts`.
 2. The `loginPage` fixture gives a `LoginPage` instance.
 3. Locators live on the page class. Specs call actions (`open`, `login`) and page assertions (`expectLoggedIn`).
-4. Playwright `baseURL` comes from `WEB_BASE_URL`.
+4. Playwright `baseURL` comes from `WEB_BASE_URL` in the local env file.
 
 Locator priority: `getByRole` / `getByLabel` / `getByPlaceholder`, then `getByTestId`. No CSS or XPath in spec files.
 
@@ -36,16 +36,24 @@ Locator priority: `getByRole` / `getByLabel` / `getByPlaceholder`, then `getByTe
 
 ## Environment
 
-Copy `.env.example` to `.env` (gitignored).
+Copy `.env.example` to `.env` (gitignored). Put URLs, users, and passwords only in local env files — never in source, specs, or docs.
+
+Load order:
+
+1. `.env`
+2. `.env.${ENV}` if that file exists (overrides `.env`). `ENV` defaults to `sandbox`.
+
+Switch environment with one value, for example `ENV=dev`, after you create a local `.env.dev`. Login path in the page object is `/login`.
 
 | Variable | Used by |
 |----------|---------|
-| `WEB_BASE_URL` | E2E / Playwright `baseURL` |
+| `ENV` | Which overlay file to load (default `sandbox`) |
+| `WEB_BASE_URL` | Playwright `baseURL` |
 | `API_BASE_URL` | API client |
 | `BRAND_EMAIL` / `BRAND_PASSWORD` | Login UI and Auth API |
 | `CREATOR_EMAIL` / `CREATOR_PASSWORD` | Reserved for later creator flows |
 
-`src/config/env.ts` fails with a clear error when a required variable is missing.
+`src/config/env.ts` fails with a clear error when a required variable is missing. Do not point CI at production unless that is explicit.
 
 ## Projects
 

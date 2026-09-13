@@ -15,12 +15,13 @@ Update this file after each meaningful change.
 - [x] Cursor rules for core, POM, E2E, and API
 - [x] Git remote `origin` (no push)
 - [x] `tsconfig.json` uses `moduleResolution: bundler` (not deprecated `node`/`node10`)
+- [x] URLs, users, and secrets live only in local `.env` / `.env.${ENV}` (gitignored)
+- [x] `ENV` defaults to `sandbox`; no hosts hardcoded in source
 
 ## Next
 
-- [ ] Fill `.env` with real `WEB_BASE_URL`, `API_BASE_URL`, and test users
-- [ ] Tune `LoginPage` locators against the live web app
-- [ ] Confirm login path (`/login`) matches production routing
+- [ ] Fill local `.env` (or `.env.sandbox`) with `WEB_BASE_URL`, `API_BASE_URL`, and test users
+- [ ] Tune `LoginPage` locators against sandbox login
 - [ ] Campaigns UI page + matching API client
 - [ ] Proposals UI page + matching API client
 - [ ] CI workflow after local runs are green

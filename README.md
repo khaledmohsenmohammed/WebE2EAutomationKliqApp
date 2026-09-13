@@ -10,7 +10,9 @@ npx playwright install chromium
 cp .env.example .env
 ```
 
-Fill `.env` with the web URL, API URL, and test users. Do not commit `.env`.
+Fill `WEB_BASE_URL`, `API_BASE_URL`, and test users in `.env`. Do not commit `.env`.
+
+`ENV` defaults to `sandbox`. To switch, set `ENV=dev` or `ENV=production` and keep values in a local `.env.dev` / `.env.production` (also gitignored).
 
 ## Run tests
 

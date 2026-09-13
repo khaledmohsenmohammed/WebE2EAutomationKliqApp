@@ -8,7 +8,8 @@ alwaysApply: true
 - Before changing tests, pages, or API clients, read `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`, and `docs/PROJECT-RULES.md`.
 - After meaningful work, update `docs/PROGRESS.md`.
 - Write code, comments, and docs in English.
-- Never commit `.env`, tokens, or real passwords.
+- Never commit `.env`, `.env.*` (except `.env.example`), tokens, or real passwords.
+- Do not hardcode URLs, users, or test data in source. Read them from `src/config/env.ts`.
 
 ```typescript
 // BAD

@@ -18,10 +18,17 @@
 - Prefer role/label/placeholder locators, then `getByTestId`.
 - Do not put CSS or XPath selectors in spec files.
 
+## Environments
+
+- Read URLs, users, and passwords from local env files only (`src/config/env.ts`).
+- Do not hardcode hosts, emails, or credentials in source, specs, or docs.
+- Default `ENV` is `sandbox`. Switch with `ENV=dev` or `ENV=production` plus a matching local `.env.*` file.
+- Do not point tests at production unless that is explicit.
+
 ## Secrets
 
-- Never commit `.env`, tokens, or real passwords.
-- Use `.env.example` placeholders only.
+- Never commit `.env`, `.env.sandbox`, `.env.dev`, `.env.production`, tokens, or real passwords.
+- `.env.example` may list keys only, with empty values.
 
 ## Docs
 

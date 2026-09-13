@@ -1,7 +1,10 @@
+import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+const root = process.cwd();
+
+dotenv.config({ path: path.resolve(root, '.env') });
 
 function optional(name: string): string {
   return process.env[name]?.trim() ?? '';
@@ -17,7 +20,22 @@ function required(name: string): string {
   return value;
 }
 
+function resolveAppEnv(): string {
+  const value = optional('ENV').toLowerCase();
+  if (value === 'prod') {
+    return 'production';
+  }
+  return value || 'sandbox';
+}
+
+const appEnv = resolveAppEnv();
+const envFile = path.resolve(root, `.env.${appEnv}`);
+if (fs.existsSync(envFile)) {
+  dotenv.config({ path: envFile, override: true });
+}
+
 export const env = {
+  name: appEnv,
   webBaseUrl: optional('WEB_BASE_URL'),
   apiBaseUrl: optional('API_BASE_URL'),
   brandEmail: optional('BRAND_EMAIL'),
