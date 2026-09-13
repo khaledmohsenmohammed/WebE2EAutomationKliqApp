@@ -18,17 +18,20 @@
 - Prefer role/label/placeholder locators, then `getByTestId`.
 - Do not put CSS or XPath selectors in spec files.
 
-## Environments
+## Environments and test data
 
-- Read URLs, users, and passwords from local env files only (`src/config/env.ts`).
-- Do not hardcode hosts, emails, or credentials in source, specs, or docs.
-- Default `ENV` is `sandbox`. Switch with `ENV=dev` or `ENV=production` plus a matching local `.env.*` file.
+- URLs live in `testdata/environments.json`. Accounts (emails/roles) live in `testdata/users.json`.
+- Passwords live only in local `.env` / `.env.*` (gitignored).
+- Do not hardcode hosts, emails, or credentials in specs. Use `src/config/env.ts` / `testdata.ts`.
+- Default `ENV` is `sandbox`. Switch with `ENV=dev` or `ENV=production`.
+- Switch account with `ACTIVE_USER` or `users.json` → `activeUser`.
+- Persist runtime-created data with `saveGenerated()` under `testdata/generated/`.
 - Do not point tests at production unless that is explicit.
 
 ## Secrets
 
 - Never commit `.env`, `.env.sandbox`, `.env.dev`, `.env.production`, tokens, or real passwords.
-- `.env.example` may list keys only, with empty values.
+- `.env.example` may list keys only, with empty values. Never put passwords in JSON.
 
 ## Docs
 

@@ -5,14 +5,18 @@ KliqApp test platform: Playwright TypeScript with Page Object Model (POM) for UI
 ## Layout
 
 ```
-src/config/env.ts          Environment loader and required-var checks
-src/fixtures/test.fixture.ts   Shared fixtures: loginPage, authApi
-src/pages/                 UI page objects (locators + actions)
-src/api/                   Backend API clients
-tests/e2e/                 Browser specs (use page objects only)
-tests/api/                 API specs (use API clients only)
-docs/                      Architecture, progress, and project rules
-.cursor/rules/             Cursor agent conventions
+testdata/environments.json   Web/API URLs per environment
+testdata/users.json          Named test accounts (emails, roles) — switch active user here
+testdata/generated/          Runtime data created by tests (gitignored contents)
+src/config/env.ts            Loads ENV + secrets from .env, merges testdata JSON
+src/config/testdata.ts       JSON readers + saveGenerated helpers
+src/fixtures/test.fixture.ts Shared fixtures: loginPage, authApi
+src/pages/                   UI page objects (locators + actions)
+src/api/                     Backend API clients
+tests/e2e/                   Browser specs (use page objects only)
+tests/api/                   API specs (use API clients only)
+docs/                        Architecture, progress, and project rules
+.cursor/rules/               Cursor agent conventions
 ```
 
 ## UI flow
@@ -20,40 +24,48 @@ docs/                      Architecture, progress, and project rules
 1. Specs import `test` / `expect` from `src/fixtures/test.fixture.ts`.
 2. The `loginPage` fixture gives a `LoginPage` instance.
 3. Locators live on the page class. Specs call actions (`open`, `login`) and page assertions (`expectLoggedIn`).
-4. Playwright `baseURL` comes from `WEB_BASE_URL` in the local env file.
+4. Playwright `baseURL` comes from `testdata/environments.json` for the current `ENV` (optional `.env` override).
 
 Locator priority: `getByRole` / `getByLabel` / `getByPlaceholder`, then `getByTestId`. No CSS or XPath in spec files.
 
 ## API flow
 
 1. Specs use the `authApi` fixture (`AuthApi` over Playwright `APIRequestContext`).
-2. `AuthApi` builds URLs from `API_BASE_URL`. Specs never hardcode host names.
+2. `AuthApi` builds URLs from `apiBaseUrl` in environments JSON (or `API_BASE_URL` override). Specs never hardcode host names.
 3. Auth contract used in this slice:
    - `POST /api/v1/auth/login/`
    - `POST /api/v1/auth/login/logout/`
    - `POST /api/v1/auth/login/refresh-token/`
    - `GET /api/v1/auth/login/my-profile/`
 
-## Environment
+## Environment and test data
 
-Copy `.env.example` to `.env` (gitignored). Put URLs, users, and passwords only in local env files — never in source, specs, or docs.
+| Source | What it holds | On Git? |
+|--------|---------------|---------|
+| `testdata/environments.json` | `webBaseUrl` / `apiBaseUrl` per env | Yes |
+| `testdata/users.json` | Account keys, emails, roles, `activeUser` | Yes (no passwords) |
+| `testdata/generated/` | Data created during runs | Folder yes; files ignored |
+| `.env` | `ENV`, `ACTIVE_USER`, passwords, optional URL overrides | No |
 
 Load order:
 
-1. `.env`
-2. `.env.${ENV}` if that file exists (overrides `.env`). `ENV` defaults to `sandbox`.
+1. Read `.env` (gitignored).
+2. Resolve `ENV` (default `sandbox` from environments.json).
+3. Load URLs from `testdata/environments.json[ENV]`. Optional `WEB_BASE_URL` / `API_BASE_URL` in `.env` override JSON.
+4. Resolve active user from `ACTIVE_USER` or `users.json` → `activeUser`. Password from the user's `passwordEnv` key in `.env`.
 
-Switch environment with one value, for example `ENV=dev`, after you create a local `.env.dev`. Login path in the page object is `/login`.
+Switch environment: set `ENV=dev` (or `production`). Switch account: set `ACTIVE_USER=brandAlt` or change `activeUser` in `users.json`.
+
+Login path in the page object is `/login`.
 
 | Variable | Used by |
 |----------|---------|
-| `ENV` | Which overlay file to load (default `sandbox`) |
-| `WEB_BASE_URL` | Playwright `baseURL` |
-| `API_BASE_URL` | API client |
-| `BRAND_EMAIL` / `BRAND_PASSWORD` | Login UI and Auth API |
-| `CREATOR_EMAIL` / `CREATOR_PASSWORD` | Reserved for later creator flows |
+| `ENV` | Which block in `environments.json` (default `sandbox`) |
+| `ACTIVE_USER` | Which key in `users.json` |
+| `WEB_BASE_URL` / `API_BASE_URL` | Optional overrides of JSON URLs |
+| `BRAND_PASSWORD` / `CREATOR_PASSWORD` | Secrets only — never in JSON |
 
-`src/config/env.ts` fails with a clear error when a required variable is missing. Do not point CI at production unless that is explicit.
+Do not point CI at production unless that is explicit.
 
 ## Projects
 

@@ -1,0 +1,17 @@
+{
+  "default": "sandbox",
+  "environments": {
+    "sandbox": {
+      "webBaseUrl": "https://appsandbox.kliqapp.io",
+      "apiBaseUrl": ""
+    },
+    "dev": {
+      "webBaseUrl": "https://appdev.kliqapp.io",
+      "apiBaseUrl": ""
+    },
+    "production": {
+      "webBaseUrl": "https://app.kliqapp.io",
+      "apiBaseUrl": ""
+    }
+  }
+}

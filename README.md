@@ -10,9 +10,12 @@ npx playwright install chromium
 cp .env.example .env
 ```
 
-Fill `WEB_BASE_URL`, `API_BASE_URL`, and test users in `.env`. Do not commit `.env`.
+1. Put emails in [testdata/users.json](testdata/users.json) and set `activeUser` (or `ACTIVE_USER` in `.env`).
+2. Put `apiBaseUrl` in [testdata/environments.json](testdata/environments.json) when you have it (web URLs are already there).
+3. Put passwords only in `.env` (`BRAND_PASSWORD`, `CREATOR_PASSWORD`). Do not commit `.env`.
 
-`ENV` defaults to `sandbox`. To switch, set `ENV=dev` or `ENV=production` and keep values in a local `.env.dev` / `.env.production` (also gitignored).
+Switch environment: `ENV=sandbox` | `dev` | `production`.  
+Switch account: `ACTIVE_USER=brandAlt` or change `activeUser` in `users.json`.
 
 ## Run tests
 
@@ -34,3 +37,4 @@ npm run report           # last HTML report
 
 - Login locators are role/placeholder-based until they are tuned against the live app.
 - Auth endpoints follow the KliqApp `/api/v1/auth/...` contract.
+- Runtime-created data goes under `testdata/generated/` (contents gitignored).

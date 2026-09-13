@@ -9,11 +9,12 @@ alwaysApply: true
 - After meaningful work, update `docs/PROGRESS.md`.
 - Write code, comments, and docs in English.
 - Never commit `.env`, `.env.*` (except `.env.example`), tokens, or real passwords.
-- Do not hardcode URLs, users, or test data in source. Read them from `src/config/env.ts`.
+- Do not hardcode URLs, users, or test data in specs. Use `testdata/*.json` via `src/config/env.ts` / `testdata.ts`.
 
 ```typescript
 // BAD
 const token = 'eyJhbGciOi...';
+await page.goto('https://appsandbox.kliqapp.io/login');
 
 // GOOD
 const { brandEmail, brandPassword } = requireApiEnv();

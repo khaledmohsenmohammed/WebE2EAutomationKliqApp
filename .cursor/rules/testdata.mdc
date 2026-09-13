@@ -1,0 +1,21 @@
+---
+description: Test data JSON conventions for environments and users
+globs: testdata/**/*.json,src/config/testdata.ts,src/config/env.ts
+alwaysApply: false
+---
+
+# Test data
+
+- URLs: `testdata/environments.json` only (optional `.env` override).
+- Accounts: `testdata/users.json` — switch with `activeUser` or `ACTIVE_USER`.
+- Passwords: `.env` only via each user's `passwordEnv` key. Never store passwords in JSON.
+- Runtime artifacts: `saveGenerated()` → `testdata/generated/` (gitignored files).
+
+```typescript
+// BAD
+const email = 'hardcoded@test.com';
+
+// GOOD
+const user = requireUser('brandAlt');
+// or change ACTIVE_USER / users.json activeUser
+```

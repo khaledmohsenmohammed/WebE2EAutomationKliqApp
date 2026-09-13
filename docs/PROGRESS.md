@@ -15,12 +15,14 @@ Update this file after each meaningful change.
 - [x] Cursor rules for core, POM, E2E, and API
 - [x] Git remote `origin` (no push)
 - [x] `tsconfig.json` uses `moduleResolution: bundler` (not deprecated `node`/`node10`)
-- [x] URLs, users, and secrets live only in local `.env` / `.env.${ENV}` (gitignored)
-- [x] `ENV` defaults to `sandbox`; no hosts hardcoded in source
+- [x] `testdata/environments.json` holds URLs per env; `users.json` holds switchable accounts
+- [x] Passwords only in local `.env`; `ACTIVE_USER` / `ENV` switch environment and account
+- [x] `testdata/generated/` for runtime-created test data
 
 ## Next
 
-- [ ] Fill local `.env` (or `.env.sandbox`) with `WEB_BASE_URL`, `API_BASE_URL`, and test users
+- [ ] Fill `apiBaseUrl` in `environments.json` and emails in `users.json`
+- [ ] Set `BRAND_PASSWORD` / `CREATOR_PASSWORD` in local `.env`
 - [ ] Tune `LoginPage` locators against sandbox login
 - [ ] Campaigns UI page + matching API client
 - [ ] Proposals UI page + matching API client

@@ -8,4 +8,4 @@ Before changing tests, pages, or API clients, read:
 
 Follow `.cursor/rules/` for file-specific conventions.
 
-After meaningful work, update `docs/PROGRESS.md`. Write all code and docs in English. Never commit secrets or local `.env` / `.env.*` files. Do not hardcode URLs, users, or test data in source.
+After meaningful work, update `docs/PROGRESS.md`. Write all code and docs in English. Never commit secrets or local `.env` / `.env.*` files. Put URLs and accounts in `testdata/*.json`; put passwords only in `.env`. Do not hardcode them in specs.

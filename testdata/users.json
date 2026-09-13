@@ -1,0 +1,23 @@
+{
+  "activeUser": "brandDefault",
+  "users": {
+    "brandDefault": {
+      "role": "brand",
+      "email": "",
+      "passwordEnv": "BRAND_PASSWORD",
+      "notes": "Primary brand account for login and Auth API tests"
+    },
+    "brandAlt": {
+      "role": "brand",
+      "email": "",
+      "passwordEnv": "BRAND_PASSWORD",
+      "notes": "Alternate brand — fill email when you need a second account"
+    },
+    "creatorDefault": {
+      "role": "creator",
+      "email": "",
+      "passwordEnv": "CREATOR_PASSWORD",
+      "notes": "Primary creator account for later creator flows"
+    }
+  }
+}
