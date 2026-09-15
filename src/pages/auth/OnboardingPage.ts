@@ -24,15 +24,37 @@ import { BasePage } from '../base/BasePage';
  * The dialog has two "Close"-named controls (an icon button and a full-width
  * CTA button, both with the same accessible name "Close"); `.last()` in DOM
  * order reliably picks the CTA over the icon.
+ *
+ * Step 1 fields, verified live on sandbox: the avatar picker button has no
+ * accessible name or backing `<input type="file">` — clicking it opens a
+ * native OS file-chooser dialog instead (caught via Playwright's
+ * `filechooser` event). Location/category are autocomplete inputs whose
+ * suggestion rows are plain elements (no `option`/`listitem` role) — matched
+ * by exact visible text instead.
  */
 export class OnboardingPage extends BasePage {
   readonly skipButton: Locator;
   readonly nextButton: Locator;
+  /**
+   * Avatar picker. No accessible name and no `<input type="file">` in the
+   * DOM — clicking it triggers a native file-chooser event directly.
+   * `:has(svg.lucide-user)` is a CSS fallback (no ARIA-role alternative
+   * exists), the same tolerated exception as `input[type="file"]` in
+   * `PublicCampaignDetailsStep.uploadFiles()`.
+   */
+  readonly avatarButton: Locator;
+  /** Placeholder confirmed live: "Enter your country and city". */
+  readonly locationInput: Locator;
+  /** Placeholder confirmed live: "Start typing to search...". */
+  readonly categoryInput: Locator;
 
   constructor(page: Page) {
     super(page);
     this.skipButton = page.getByRole('button', { name: /skip for now/i });
     this.nextButton = page.getByRole('button', { name: /^next$/i });
+    this.avatarButton = page.locator('button:has(svg.lucide-user)');
+    this.locationInput = page.getByLabel(/^location$/i).or(page.getByPlaceholder(/enter your country and city/i));
+    this.categoryInput = page.getByLabel(/select your category/i).or(page.getByPlaceholder(/start typing to search/i));
   }
 
   private isOnOnboardingRoute(): boolean {
@@ -115,5 +137,70 @@ export class OnboardingPage extends BasePage {
 
   async expectOnboardingComplete(): Promise<void> {
     await expect(this.page).not.toHaveURL(/\/onboarding/i);
+  }
+
+  async uploadProfileImage(filePath: string): Promise<void> {
+    const [fileChooser] = await Promise.all([
+      this.page.waitForEvent('filechooser'),
+      this.avatarButton.click(),
+    ]);
+    await fileChooser.setFiles(filePath);
+  }
+
+  /**
+   * Fills the location field and, if the typed value renders an exact-text
+   * suggestion, clicks it. Suggestion rows are plain elements (no
+   * `option`/`listitem` role) and can include unrelated rows that merely
+   * *contain* the query as a substring (e.g. typing "Egypt" also surfaces
+   * "Egyptian Bazaar, ... Türkiye") — exact-text matching avoids picking one
+   * of those by accident. Falls through silently if no exact match renders,
+   * leaving the typed free text as-is.
+   */
+  async fillLocation(location: string): Promise<void> {
+    await this.locationInput.click();
+    await this.locationInput.fill(location);
+    const suggestion = this.page.getByText(location, { exact: true }).first();
+    if (await suggestion.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await suggestion.click();
+    }
+  }
+
+  /**
+   * Types the category and clicks its exact-text suggestion (same plain-row,
+   * no-ARIA-role shape as `fillLocation`). Selecting a niche leaves its
+   * suggestions dropdown open — ready to pick more, up to 3 — and it can
+   * overlay/intercept the Next button, so this closes it afterward by
+   * moving focus to the step heading.
+   */
+  async selectCategory(name: string): Promise<void> {
+    await this.categoryInput.click();
+    await this.categoryInput.fill(name);
+    await this.page.getByText(name, { exact: true }).first().click();
+    await this.page.getByRole('heading', { name: /let's get to know you/i }).first().click();
+  }
+
+  /**
+   * Fills Step 1 ("Let's Get to Know You") for real — profile image,
+   * location, category — then advances via Next. Reuses
+   * `clickDespiteBlockingDialog()` for the Next click since the same
+   * "Notifications Blocked" dialog documented on this class can intercept here too.
+   */
+  async completeProfileStepOne(input: {
+    imagePath: string;
+    location: string;
+    category: string;
+  }): Promise<void> {
+    await this.dismissBlockingDialogIfPresent();
+    await this.uploadProfileImage(input.imagePath);
+    await this.fillLocation(input.location);
+    await this.selectCategory(input.category);
+    await this.clickDespiteBlockingDialog(this.nextButton);
+  }
+
+  /** Confirms Step 1 was accepted and the wizard advanced to Step 2 ("Connect Your Social Accounts"). */
+  async expectStepTwoVisible(): Promise<void> {
+    await expect(
+      this.page.getByRole('heading', { name: /connect your social accounts/i }),
+    ).toBeVisible();
   }
 }

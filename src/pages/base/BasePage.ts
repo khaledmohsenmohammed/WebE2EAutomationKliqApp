@@ -60,4 +60,38 @@ export class BasePage {
     const dialog = this.dialog();
     await dialog.getByRole('button', { name: /close|cancel|ok|done/i }).first().click();
   }
+
+  /**
+   * "Profile Completion Required" (creator) / "Profile Incomplete" (brand)
+   * banner CTA. Loose regex, no end-anchor: creator's live button text is
+   * "Complete Profile", brand's is "Complete Profile Now" — "Complete
+   * Profile" is a substring of both, so one locator covers both roles.
+   * Confirmed live — creator: a `button`, matches this locator directly.
+   */
+  completeProfileButton(): Locator {
+    return this.page.getByRole('button', { name: /complete profile/i });
+  }
+
+  /**
+   * A promo modal ("Unlock More Campaigns & Earn Faster!") can appear on
+   * first dashboard landing and — via `aria-hidden`/`inert` on the rest of
+   * the page while it's open — makes the banner unreachable by role/name
+   * until dismissed. Reuses `dismissDialog()`, whose generic
+   * close/cancel/ok/done button regex already matches this dialog's "Close" button.
+   */
+  private async closeBlockingDialogIfOpen(): Promise<void> {
+    if (await this.dialog().isVisible().catch(() => false)) {
+      await this.dismissDialog();
+    }
+  }
+
+  async expectProfileCompletionBannerVisible(): Promise<void> {
+    await this.closeBlockingDialogIfOpen();
+    await expect(this.completeProfileButton()).toBeVisible();
+  }
+
+  async openCompleteProfile(): Promise<void> {
+    await this.closeBlockingDialogIfOpen();
+    await this.completeProfileButton().click();
+  }
 }
