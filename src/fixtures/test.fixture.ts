@@ -1,6 +1,7 @@
 import { test as base } from '@playwright/test';
 import { AuthApi } from '../api/auth.api';
 import { requireApiEnv } from '../config/env';
+import { CreatorMyCampaignsPage } from '../pages/creator/CreatorMyCampaignsPage';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { OnboardingPage } from '../pages/auth/OnboardingPage';
 import { OtpPage } from '../pages/auth/OtpPage';
@@ -11,6 +12,7 @@ type Fixtures = {
   registerPage: RegisterPage;
   otpPage: OtpPage;
   onboardingPage: OnboardingPage;
+  creatorMyCampaignsPage: CreatorMyCampaignsPage;
   authApi: AuthApi;
 };
 
@@ -26,6 +28,9 @@ export const test = base.extend<Fixtures>({
   },
   onboardingPage: async ({ page }, use) => {
     await use(new OnboardingPage(page));
+  },
+  creatorMyCampaignsPage: async ({ page }, use) => {
+    await use(new CreatorMyCampaignsPage(page));
   },
   authApi: async ({ request }, use) => {
     const { apiBaseUrl } = requireApiEnv();

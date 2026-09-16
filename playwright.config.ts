@@ -17,6 +17,10 @@ export default defineConfig({
     {
       name: 'e2e',
       testDir: './tests/e2e',
+      // Real-network multi-step flows (registration → OTP → onboarding)
+      // against sandbox routinely take 15-20s; the 30s default leaves too
+      // little margin and was observed timing out mid-flow.
+      timeout: 60_000,
       use: { ...devices['Desktop Chrome'] },
     },
     {
