@@ -26,6 +26,12 @@ export class RegisterPage extends BasePage {
   readonly termsLink: Locator;
   readonly privacyPolicyLink: Locator;
   readonly joinNowButton: Locator;
+  /** Banner shown after submit when the phone belongs to an existing account. Plain text, no alert/status role. */
+  readonly duplicatePhoneError: Locator;
+  /** Banner shown after submit when the email belongs to an existing account. Plain text, no alert/status role. */
+  readonly duplicateEmailError: Locator;
+  /** Inline `role="alert"` under the phone field for a malformed number (e.g. wrong length/country). */
+  readonly phoneValidationError: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -48,6 +54,9 @@ export class RegisterPage extends BasePage {
     this.termsLink = page.getByRole('link', { name: /terms and condition of service/i });
     this.privacyPolicyLink = page.getByRole('link', { name: /privacy policy/i }).first();
     this.joinNowButton = page.getByRole('button', { name: /join now/i });
+    this.duplicatePhoneError = page.getByText(/an account with this phone number already exists/i);
+    this.duplicateEmailError = page.getByText(/an account with this email already exists/i);
+    this.phoneValidationError = page.getByRole('alert', { name: /please enter a valid phone number/i });
   }
 
   async open(): Promise<void> {
@@ -124,5 +133,35 @@ export class RegisterPage extends BasePage {
 
   async goToLogin(): Promise<void> {
     await this.loginLink.click();
+  }
+
+  /**
+   * Races every outcome a submit can produce: the redirect to
+   * `/email-verification`, the duplicate-phone/email banners, or the phone
+   * field's own format-validation alert. Confirmed against sandbox: none of
+   * these share a role or container, so each is awaited independently
+   * rather than polled through one shared locator. A loser is turned into a
+   * never-resolving promise instead of left to reject on its own timeout,
+   * which would otherwise surface as an unhandled rejection once the race
+   * already settled.
+   */
+  async waitForSubmitOutcome(): Promise<
+    'success' | 'duplicate-phone' | 'duplicate-email' | 'invalid-phone'
+  > {
+    const settleOrHang = <T>(promise: Promise<T>): Promise<T> =>
+      promise.catch(() => new Promise<T>(() => {}));
+
+    return Promise.race([
+      settleOrHang(this.waitForUrl(/email-verification/i).then(() => 'success' as const)),
+      settleOrHang(
+        this.duplicatePhoneError.waitFor({ state: 'visible' }).then(() => 'duplicate-phone' as const),
+      ),
+      settleOrHang(
+        this.duplicateEmailError.waitFor({ state: 'visible' }).then(() => 'duplicate-email' as const),
+      ),
+      settleOrHang(
+        this.phoneValidationError.waitFor({ state: 'visible' }).then(() => 'invalid-phone' as const),
+      ),
+    ]);
   }
 }

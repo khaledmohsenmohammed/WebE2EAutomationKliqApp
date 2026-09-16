@@ -22,7 +22,11 @@ export class BasePage {
   }
 
   async goto(path: string): Promise<void> {
-    await this.page.goto(path);
+    // `waitUntil: 'load'` (the default) waits for every resource on the
+    // page to finish — a hung third-party script/beacon can block that
+    // forever even though the app is already interactive. DOM-ready is
+    // enough; callers assert on specific locators for real readiness.
+    await this.page.goto(path, { waitUntil: 'domcontentloaded' });
   }
 
   async waitForUrl(url: string | RegExp): Promise<void> {

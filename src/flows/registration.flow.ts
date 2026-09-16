@@ -1,7 +1,14 @@
 import type { OnboardingPage } from '../pages/auth/OnboardingPage';
 import type { OtpPage } from '../pages/auth/OtpPage';
 import type { RegisterPage } from '../pages/auth/RegisterPage';
-import type { RegistrationData } from '../utils/registrationData.factory';
+import {
+  buildBrandRegistrationData,
+  buildCreatorRegistrationData,
+  type RegistrationData,
+} from '../utils/registrationData.factory';
+
+/** Sandbox data collisions (duplicate phone/email) and phone-format rejections get this many submit attempts before the case fails. */
+const MAX_REGISTRATION_ATTEMPTS = 3;
 
 /**
  * Step flags for a brand/creator registration run. Updated in place as
@@ -66,6 +73,57 @@ function cleanErrorMessage(err: unknown): string {
 }
 
 /**
+ * Fills and submits the register form, reacting to whichever outcome
+ * `RegisterPage.waitForSubmitOutcome` reports:
+ *  - `success` — done.
+ *  - `duplicate-phone` / `duplicate-email` — the randomly generated value
+ *    collided with an existing sandbox account; regenerate that field only
+ *    and resubmit.
+ *  - `invalid-phone` — the phone field rejected the generated number's
+ *    format; regenerate it and resubmit.
+ * Mutates `data.phone`/`data.email` in place (same convention as
+ * `progress` below) so a retry is reflected in whatever the caller logs
+ * afterward. Reloads the register page between attempts since a stale
+ * duplicate-account banner or the previous invalid value can otherwise
+ * linger in the DOM. Throws once `MAX_REGISTRATION_ATTEMPTS` is spent, which
+ * fails the test case rather than looping forever on real product bugs.
+ */
+async function submitRegistrationForm(
+  registerPage: RegisterPage,
+  data: RegistrationData,
+): Promise<void> {
+  for (let attempt = 1; attempt <= MAX_REGISTRATION_ATTEMPTS; attempt++) {
+    if (attempt > 1) {
+      await registerPage.open();
+    }
+
+    if (data.role === 'brand') {
+      await registerPage.registerBrand(data);
+    } else {
+      await registerPage.registerCreator(data);
+    }
+
+    const outcome = await registerPage.waitForSubmitOutcome();
+    if (outcome === 'success') {
+      return;
+    }
+
+    if (attempt === MAX_REGISTRATION_ATTEMPTS) {
+      throw new Error(
+        `Registration form was still rejected after ${MAX_REGISTRATION_ATTEMPTS} attempts (last reason: ${outcome}).`,
+      );
+    }
+
+    const regenerated = data.role === 'brand' ? buildBrandRegistrationData() : buildCreatorRegistrationData();
+    if (outcome === 'duplicate-phone' || outcome === 'invalid-phone') {
+      data.phone = regenerated.phone;
+    } else if (outcome === 'duplicate-email') {
+      data.email = regenerated.email;
+    }
+  }
+}
+
+/**
  * Drives a full brand-or-creator registration: fill + submit the form, clear
  * the OTP step, clear the onboarding wizard, then mark the account created.
  * Mutates and returns `progress` at every stage so the caller can persist it
@@ -91,16 +149,12 @@ export async function registerAndOnboard(
 
   try {
     await registerPage.open();
-    if (data.role === 'brand') {
-      await registerPage.registerBrand(data);
-    } else {
-      await registerPage.registerCreator(data);
-    }
     // Confirmed against sandbox: a successful submit lands on
-    // `/email-verification`. Waiting for it (rather than trusting that the
-    // click didn't throw) is what catches a rejected submission — e.g. the
-    // phone-format bug this flow originally missed.
-    await registerPage.waitForUrl(/email-verification/i);
+    // `/email-verification`. Racing that redirect against the duplicate and
+    // validation outcomes (rather than trusting that the click didn't
+    // throw) is what catches a rejected submission — e.g. the phone-format
+    // bug this flow originally missed.
+    await submitRegistrationForm(registerPage, data);
     progress.formSubmitted = true;
     touch(progress);
 
