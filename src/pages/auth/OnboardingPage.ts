@@ -103,17 +103,26 @@ export class OnboardingPage extends BasePage {
    * instead of eating most of the test's time budget. Each waiter is caught
    * on its own *before* the race: `Promise.race` does not cancel the loser,
    * and a `.catch()` only on the race leaves that later timeout as an
-   * unhandled rejection (worse across loop iterations). A bare `isVisible()`
-   * alone doesn't auto-wait, and calling it an instant too early
-   * (mid-redirect from `/onboarding` to `/onboarding/creator`) reads "not
-   * rendered yet" as "nothing here" and breaks out immediately — exactly the
-   * race that caused a false `onboardingCompleted: true` before this was fixed.
+   * unhandled rejection (worse across loop iterations).
+   *
+   * The notifications dialog is allowed to win that first race, but that
+   * must not be treated as "the wizard is ready" or as "there is nothing to
+   * skip". OTP lands on `/onboarding` and then redirects to
+   * `/onboarding/creator`; dismissing the dialog an instant too early used
+   * to hit `else { break }` because Skip/Next had not rendered yet, after
+   * which `expectOnboardingComplete()` failed while the wizard finished
+   * loading (URL still `/onboarding/creator`, Step 1 still on screen).
+   * After dismissing, wait for Skip/Next for real; if they are still not
+   * there, `continue` and retry instead of bailing out. After a click, wait
+   * for the URL to leave onboarding or the action to go hidden (next step)
+   * rather than a fixed sleep.
    */
   async completeOnboarding(maxSteps = 5): Promise<void> {
+    const wizardAction = this.skipButton.or(this.nextButton).first();
+
     for (let i = 0; i < maxSteps && this.isOnOnboardingRoute(); i += 1) {
       const controlAppeared = this.dialog()
-        .or(this.skipButton)
-        .or(this.nextButton)
+        .or(wizardAction)
         .first()
         .waitFor({ state: 'visible', timeout: 8000 })
         .catch(() => {});
@@ -122,21 +131,50 @@ export class OnboardingPage extends BasePage {
         .catch(() => {});
       await Promise.race([controlAppeared, leftOnboarding]);
 
+      if (!this.isOnOnboardingRoute()) {
+        return;
+      }
+
       await this.dismissBlockingDialogIfPresent();
 
-      if (await this.skipButton.isVisible().catch(() => false)) {
-        await this.clickDespiteBlockingDialog(this.skipButton);
-      } else if (await this.nextButton.isVisible().catch(() => false)) {
-        await this.clickDespiteBlockingDialog(this.nextButton);
-      } else {
-        break;
+      try {
+        await wizardAction.waitFor({ state: 'visible', timeout: 8000 });
+      } catch {
+        continue;
       }
-      await this.page.waitForTimeout(300);
+
+      const stepHeading = this.page
+        .getByRole('heading', {
+          level: 1,
+          name: /let's get to know you|connect your social|mawthooq/i,
+        })
+        .first();
+      const headingBefore = (await stepHeading.textContent().catch(() => '')) ?? '';
+
+      if (await this.skipButton.isVisible()) {
+        await this.clickDespiteBlockingDialog(this.skipButton);
+      } else {
+        await this.clickDespiteBlockingDialog(this.nextButton);
+      }
+
+      // Skip stays visible on every step, so waiting for it to hide would
+      // always burn the timeout. The step's level-1 heading changing — or
+      // the URL leaving /onboarding on the last skip — is the real signal.
+      await Promise.race([
+        this.page
+          .waitForURL((url) => !/\/onboarding/i.test(url.toString()), { timeout: 5000 })
+          .catch(() => {}),
+        headingBefore
+          ? expect(stepHeading)
+              .not.toHaveText(headingBefore, { timeout: 5000 })
+              .catch(() => {})
+          : Promise.resolve(),
+      ]);
     }
   }
 
   async expectOnboardingComplete(): Promise<void> {
-    await expect(this.page).not.toHaveURL(/\/onboarding/i);
+    await expect(this.page).not.toHaveURL(/\/onboarding/i, { timeout: 15_000 });
   }
 
   async uploadProfileImage(filePath: string): Promise<void> {

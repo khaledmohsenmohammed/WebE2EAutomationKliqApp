@@ -1,5 +1,6 @@
 ---
 description: E2E specs use page objects and fixtures only
+globs: tests/e2e/**/*.ts
 alwaysApply: false
 ---
 # E2E specs
