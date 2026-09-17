@@ -1,6 +1,6 @@
 ---
 description: Test data JSON conventions for environments and users
-globs: testdata/**/*.json,src/config/testdata.ts,src/config/env.ts
+globs: testdata/**/*.json,src/config/testdata.ts,src/config/env.ts,src/flows/registration.flow.ts,tests/e2e/**/*.ts
 alwaysApply: false
 ---
 
@@ -11,12 +11,15 @@ alwaysApply: false
 - Passwords: `.env` only via each user's `passwordEnv` key. Never store passwords in JSON.
 - Runtime artifacts: `saveGenerated()` → `testdata/generated/` (gitignored files).
 - Accumulating log: `appendGenerated()` → single shared JSON file (e.g. `testdata/generated/registrations.json`), one entry per run keyed by ISO timestamp, includes a `type` field (brand/creator).
+- Generated accounts: creating a sandbox account **must** go through `registerAndOnboard()` — it persists the row itself. Do not also `appendGenerated('registrations')` from a spec. Any later change to that account **must** call `recordAccountUpdate()` so the same row is patched.
 
 ```typescript
 // BAD
 const email = 'hardcoded@test.com';
+await appendGenerated('registrations', { type: data.role, data, otpCode, progress });
 
 // GOOD
 const user = requireUser('brandAlt');
-// or change ACTIVE_USER / users.json activeUser
+await registerAndOnboard(pages, data, otpCode, progress);
+await recordAccountUpdate(progress, { kind: 'profile-step-1', details: { location: 'Egypt' } });
 ```

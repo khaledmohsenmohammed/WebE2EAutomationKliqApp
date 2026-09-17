@@ -46,7 +46,7 @@ Locator priority: `getByRole` / `getByLabel` / `getByPlaceholder`, then `getByTe
 |--------|---------------|---------|
 | `testdata/environments.json` | `webBaseUrl` / `apiBaseUrl` per env | Yes |
 | `testdata/users.json` | Account keys, emails, roles, `activeUser` | Yes (no passwords) |
-| `testdata/generated/` | Data created during runs | Folder yes; files ignored |
+| `testdata/generated/` | Runtime artifacts, including `registrations.json` (every created sandbox account + later mutations) | Folder yes; files ignored |
 | `.env` | `ENV`, `ACTIVE_USER`, passwords, optional URL overrides | No |
 
 Load order:

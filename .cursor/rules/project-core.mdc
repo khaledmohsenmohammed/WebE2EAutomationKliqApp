@@ -10,6 +10,7 @@ alwaysApply: true
 - Write code, comments, and docs in English.
 - Never commit `.env`, `.env.*` (except `.env.example`), tokens, or real passwords.
 - Do not hardcode URLs, users, or test data in specs. Use `testdata/*.json` via `src/config/env.ts` / `testdata.ts`.
+- Generated sandbox accounts must be persisted: `registerAndOnboard()` writes `testdata/generated/registrations.json`; later mutations of that account call `recordAccountUpdate()`. Specs must not also `appendGenerated('registrations')`.
 
 ```typescript
 // BAD

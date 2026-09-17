@@ -63,12 +63,29 @@ export class RegisterPage extends BasePage {
     await this.goto('/register');
   }
 
+  /**
+   * A click right after navigation can land before the SPA finishes
+   * hydrating — the tab is visible and "clickable" by Playwright's
+   * actionability checks, but its handler isn't wired up yet, so the click
+   * is a silent no-op. `fullNameInput` is also shared by both role forms,
+   * so it can't tell them apart either. `expect(...).toPass()` re-clicks
+   * until the role-only field (`brandNameInput`/`socialHandleInput`)
+   * actually shows up, verifying the click really took effect instead of
+   * assuming a single click did — and still fails fast (15s) with a clear
+   * attribution if the role form never renders at all.
+   */
   async selectBrandRole(): Promise<void> {
-    await this.brandRoleButton.click();
+    await expect(async () => {
+      await this.brandRoleButton.click();
+      await expect(this.brandNameInput).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
   }
 
   async selectCreatorRole(): Promise<void> {
-    await this.creatorsRoleButton.click();
+    await expect(async () => {
+      await this.creatorsRoleButton.click();
+      await expect(this.socialHandleInput).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
   }
 
   /**

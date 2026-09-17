@@ -2,6 +2,7 @@ import path from 'path';
 import { requireTestOtpCode } from '../../../src/config/env';
 import {
   createInitialProgress,
+  recordAccountUpdate,
   registerAndOnboard,
 } from '../../../src/flows/registration.flow';
 import { expect, test } from '../../../src/fixtures/test.fixture';
@@ -18,27 +19,47 @@ test.describe('Creator profile completion', () => {
   }) => {
     const data = buildCreatorRegistrationData();
     const otpCode = requireTestOtpCode();
+    const progress = createInitialProgress();
+    const profileStepOne = {
+      location: 'Egypt',
+      category: 'Technology',
+      image: 'profile-image.png',
+    };
 
     // Registers + skips onboarding (existing flow), which is exactly what
     // leaves the profile incomplete for this test to then complete for real.
+    // The generated account is persisted inside registerAndOnboard.
     await registerAndOnboard(
       { registerPage, otpPage, onboardingPage },
       data,
       otpCode,
-      createInitialProgress(),
+      progress,
     );
 
-    await creatorMyCampaignsPage.open();
-    await creatorMyCampaignsPage.expectProfileCompletionBannerVisible();
-    await creatorMyCampaignsPage.openCompleteProfile();
-    await onboardingPage.waitForUrl(/\/onboarding\/creator/i);
+    try {
+      await creatorMyCampaignsPage.open();
+      await creatorMyCampaignsPage.expectProfileCompletionBannerVisible();
+      await creatorMyCampaignsPage.openCompleteProfile();
+      await onboardingPage.waitForUrl(/\/onboarding\/creator/i);
 
-    await onboardingPage.completeProfileStepOne({
-      imagePath: PROFILE_IMAGE_PATH,
-      location: 'Egypt',
-      category: 'Technology',
-    });
+      await onboardingPage.completeProfileStepOne({
+        imagePath: PROFILE_IMAGE_PATH,
+        location: profileStepOne.location,
+        category: profileStepOne.category,
+      });
 
-    await onboardingPage.expectStepTwoVisible();
+      await onboardingPage.expectStepTwoVisible();
+      await recordAccountUpdate(progress, {
+        kind: 'profile-step-1',
+        details: profileStepOne,
+      });
+    } catch (err) {
+      progress.error = err instanceof Error ? err.message : String(err);
+      await recordAccountUpdate(progress, {
+        kind: 'profile-step-1-failed',
+        details: { message: progress.error },
+      });
+      throw err;
+    }
   });
 });
