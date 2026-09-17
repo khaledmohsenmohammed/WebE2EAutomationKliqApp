@@ -28,6 +28,7 @@
 - Switch account with `ACTIVE_USER` or `users.json` → `activeUser`.
 - Persist runtime-created data with `saveGenerated()` under `testdata/generated/`.
 - For an accumulating dated/typed record (e.g. registration runs), use `appendGenerated(fileName, entry)` instead — merges into one shared JSON file under `testdata/generated/`, keyed by ISO timestamp.
+- **Generated accounts:** any test that creates a sandbox account must go through `registerAndOnboard()`, which writes `testdata/generated/registrations.json` itself (including on failure). Specs must not also call `appendGenerated('registrations')` — that would double-log. Any later mutation of that account (profile completion, settings, etc.) must call `recordAccountUpdate()` so the same row is patched instead of a second timestamp being created.
 - Do not point tests at production unless that is explicit.
 
 ## Secrets

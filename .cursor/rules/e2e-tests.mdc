@@ -3,12 +3,12 @@ description: E2E specs use page objects and fixtures only
 globs: tests/e2e/**/*.ts
 alwaysApply: false
 ---
-
 # E2E specs
 
 - Import `test` and `expect` from `src/fixtures/test.fixture.ts`.
 - Use page objects from fixtures. Do not declare locators in specs.
 - Keep flow and expectations in the spec; keep selectors in the page class.
+- Generated sandbox accounts: create them only via `registerAndOnboard()` (it writes `testdata/generated/registrations.json`). After mutating that account, call `recordAccountUpdate()`. Never log the same registration twice from the spec.
 
 ```typescript
 // BAD

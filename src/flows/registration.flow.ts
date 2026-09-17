@@ -1,3 +1,4 @@
+import { appendGenerated, updateGenerated } from '../config/testdata';
 import type { OnboardingPage } from '../pages/auth/OnboardingPage';
 import type { OtpPage } from '../pages/auth/OtpPage';
 import type { RegisterPage } from '../pages/auth/RegisterPage';
@@ -7,14 +8,17 @@ import {
   type RegistrationData,
 } from '../utils/registrationData.factory';
 
+/** Shared dated log under testdata/generated/registrations.json. */
+const GENERATED_ACCOUNTS_FILE = 'registrations';
+
 /** Sandbox data collisions (duplicate phone/email) and phone-format rejections get this many submit attempts before the case fails. */
 const MAX_REGISTRATION_ATTEMPTS = 3;
 
 /**
  * Step flags for a brand/creator registration run. Updated in place as
  * `registerAndOnboard` progresses, so a failed run still tells you exactly
- * which step it reached — persist it (e.g. via `appendGenerated`) even when
- * the flow throws.
+ * which step it reached. The flow persists this into
+ * `testdata/generated/registrations.json` itself (including on throw).
  */
 export type RegistrationProgress = {
   formSubmitted: boolean;
@@ -24,19 +28,30 @@ export type RegistrationProgress = {
   startedAt: string;
   updatedAt: string;
   error?: string;
+  /** Timestamp key of this run's row in registrations.json, set after persist. */
+  logKey?: string;
+};
+
+/** One mutation applied to a generated account after the initial persist. */
+export type AccountUpdate = {
+  at: string;
+  kind: string;
+  details?: Record<string, unknown>;
 };
 
 /**
  * One row of the shared `testdata/generated/registrations.json` log (see
  * `appendGenerated` in `src/config/testdata.ts`). `type` is promoted out of
  * `data.role` to a top-level field so entries can be filtered by role
- * without drilling into `data`.
+ * without drilling into `data`. Later mutations of the same sandbox
+ * account are appended to `updates` rather than creating a second row.
  */
 export type RegistrationLogEntry = {
   type: RegistrationData['role'];
   data: RegistrationData;
   otpCode: string;
   progress: RegistrationProgress;
+  updates?: AccountUpdate[];
 };
 
 export type RegistrationLog = Record<string, RegistrationLogEntry>;
@@ -123,11 +138,53 @@ async function submitRegistrationForm(
   }
 }
 
+async function persistGeneratedAccount(
+  data: RegistrationData,
+  otpCode: string,
+  progress: RegistrationProgress,
+): Promise<void> {
+  const { key } = await appendGenerated<RegistrationLogEntry>(GENERATED_ACCOUNTS_FILE, {
+    type: data.role,
+    data,
+    otpCode,
+    progress,
+  });
+  progress.logKey = key;
+}
+
+/**
+ * Patches the same registrations.json row that `registerAndOnboard` wrote.
+ * Call this after any later mutation of that sandbox account (profile
+ * completion, settings, etc.) so the log stays the source of truth for
+ * what was created *and* what was changed. Throws if persist never ran.
+ */
+export async function recordAccountUpdate(
+  progress: RegistrationProgress,
+  update: { kind: string; details?: Record<string, unknown> },
+): Promise<void> {
+  if (!progress.logKey) {
+    throw new Error(
+      'Cannot record an account update because the registration was not persisted (missing logKey).',
+    );
+  }
+  touch(progress);
+  await updateGenerated<RegistrationLogEntry>(GENERATED_ACCOUNTS_FILE, progress.logKey, (entry) => ({
+    ...entry,
+    progress: { ...progress },
+    updates: [
+      ...(entry.updates ?? []),
+      { at: new Date().toISOString(), kind: update.kind, details: update.details },
+    ],
+  }));
+}
+
 /**
  * Drives a full brand-or-creator registration: fill + submit the form, clear
  * the OTP step, clear the onboarding wizard, then mark the account created.
- * Mutates and returns `progress` at every stage so the caller can persist it
- * in a `finally` block regardless of outcome.
+ * Always appends a row to `testdata/generated/registrations.json` (success
+ * or failure) so specs must not also call `appendGenerated('registrations')`
+ * — that would double-log. Later mutations of the same account go through
+ * `recordAccountUpdate`.
  *
  * Every flag is only set after a hard assertion that the app actually moved
  * forward (a URL change, not merely "the click didn't throw"). This matters
@@ -172,6 +229,8 @@ export async function registerAndOnboard(
     progress.error = cleanErrorMessage(err);
     touch(progress);
     throw err;
+  } finally {
+    await persistGeneratedAccount(data, otpCode, progress);
   }
 
   return progress;

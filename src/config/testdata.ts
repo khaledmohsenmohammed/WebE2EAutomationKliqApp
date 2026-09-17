@@ -103,20 +103,16 @@ async function acquireLock(lockPath: string, retries = 50, delayMs = 100): Promi
   throw new Error(`Timed out waiting for lock: ${lockPath}`);
 }
 
-/**
- * Append one entry to a shared, dated JSON log under testdata/generated/
- * (e.g. registrations.json), keyed by ISO creation timestamp. Unlike
- * saveGenerated() (one file per call, full overwrite), this merges into a
- * single growing file — use it for an ongoing typed record (e.g. brand/
- * creator registrations) rather than a one-off artifact.
- *
- * Guards the read-modify-write with a simple exclusive-create lock file
- * (`<file>.lock` via `{ flag: 'wx' }`) + retry/backoff, since Playwright
- * runs fullyParallel locally (unpinned workers) and there's no file-locking
- * dependency in the tree — without it, concurrent workers could race and
- * silently drop each other's entries.
- */
-export async function appendGenerated<T>(fileName: string, entry: T): Promise<string> {
+/** Result of appending or patching a dated JSON log under testdata/generated/. */
+export type GeneratedLogWrite = {
+  filePath: string;
+  key: string;
+};
+
+async function withGeneratedLog<T>(
+  fileName: string,
+  mutate: (current: Record<string, T>) => string,
+): Promise<GeneratedLogWrite> {
   const dir = path.resolve(root, 'testdata/generated');
   await fs.promises.mkdir(dir, { recursive: true });
   const filePath = path.resolve(dir, fileName.endsWith('.json') ? fileName : `${fileName}.json`);
@@ -132,10 +128,56 @@ export async function appendGenerated<T>(fileName: string, entry: T): Promise<st
         throw err;
       }
     }
-    current[new Date().toISOString()] = entry;
+    const key = mutate(current);
     await fs.promises.writeFile(filePath, `${JSON.stringify(current, null, 2)}\n`, 'utf8');
+    return { filePath, key };
   } finally {
     await fs.promises.rm(lockPath, { force: true });
   }
-  return filePath;
+}
+
+/**
+ * Append one entry to a shared, dated JSON log under testdata/generated/
+ * (e.g. registrations.json), keyed by ISO creation timestamp. Unlike
+ * saveGenerated() (one file per call, full overwrite), this merges into a
+ * single growing file — use it for an ongoing typed record (e.g. brand/
+ * creator registrations) rather than a one-off artifact.
+ *
+ * Guards the read-modify-write with a simple exclusive-create lock file
+ * (`<file>.lock` via `{ flag: 'wx' }`) + retry/backoff, since Playwright
+ * runs fullyParallel locally (unpinned workers) and there's no file-locking
+ * dependency in the tree — without it, concurrent workers could race and
+ * silently drop each other's entries.
+ *
+ * Generated sandbox accounts must go through `registerAndOnboard` (which
+ * calls this) rather than specs calling it directly — otherwise a later
+ * `recordAccountUpdate` cannot patch the same row.
+ */
+export async function appendGenerated<T>(fileName: string, entry: T): Promise<GeneratedLogWrite> {
+  return withGeneratedLog<T>(fileName, (current) => {
+    const key = new Date().toISOString();
+    current[key] = entry;
+    return key;
+  });
+}
+
+/**
+ * Patches an existing dated log row (same lock as `appendGenerated`). Used
+ * when a later test step mutates an account that was already persisted —
+ * profile completion, settings edits, etc. — so the sandbox account stays
+ * represented by one row instead of a second timestamp.
+ */
+export async function updateGenerated<T>(
+  fileName: string,
+  key: string,
+  patcher: (entry: T) => T,
+): Promise<GeneratedLogWrite> {
+  return withGeneratedLog<T>(fileName, (current) => {
+    const existing = current[key];
+    if (existing === undefined) {
+      throw new Error(`No generated entry "${key}" in ${fileName}.json`);
+    }
+    current[key] = patcher(existing);
+    return key;
+  });
 }

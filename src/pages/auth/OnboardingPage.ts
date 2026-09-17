@@ -47,6 +47,15 @@ export class OnboardingPage extends BasePage {
   readonly locationInput: Locator;
   /** Placeholder confirmed live: "Start typing to search...". */
   readonly categoryInput: Locator;
+  /**
+   * Top-right "X" that exits the wizard entirely, landing straight on the
+   * dashboard route with no confirmation. Confirmed live: its accessible
+   * name is the same "Close" used by the unrelated "Notifications Blocked"
+   * dialog's own buttons — `clickDespiteBlockingDialog()` dismisses that
+   * dialog before every click attempt, so by the time this one fires it's
+   * gone and there's no ambiguity in practice.
+   */
+  readonly closeButton: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -55,6 +64,7 @@ export class OnboardingPage extends BasePage {
     this.avatarButton = page.locator('button:has(svg.lucide-user)');
     this.locationInput = page.getByLabel(/^location$/i).or(page.getByPlaceholder(/enter your country and city/i));
     this.categoryInput = page.getByLabel(/select your category/i).or(page.getByPlaceholder(/start typing to search/i));
+    this.closeButton = page.getByRole('button', { name: /^close$/i });
   }
 
   private isOnOnboardingRoute(): boolean {
@@ -103,17 +113,26 @@ export class OnboardingPage extends BasePage {
    * instead of eating most of the test's time budget. Each waiter is caught
    * on its own *before* the race: `Promise.race` does not cancel the loser,
    * and a `.catch()` only on the race leaves that later timeout as an
-   * unhandled rejection (worse across loop iterations). A bare `isVisible()`
-   * alone doesn't auto-wait, and calling it an instant too early
-   * (mid-redirect from `/onboarding` to `/onboarding/creator`) reads "not
-   * rendered yet" as "nothing here" and breaks out immediately — exactly the
-   * race that caused a false `onboardingCompleted: true` before this was fixed.
+   * unhandled rejection (worse across loop iterations).
+   *
+   * The notifications dialog is allowed to win that first race, but that
+   * must not be treated as "the wizard is ready" or as "there is nothing to
+   * skip". OTP lands on `/onboarding` and then redirects to
+   * `/onboarding/creator`; dismissing the dialog an instant too early used
+   * to hit `else { break }` because Skip/Next had not rendered yet, after
+   * which `expectOnboardingComplete()` failed while the wizard finished
+   * loading (URL still `/onboarding/creator`, Step 1 still on screen).
+   * After dismissing, wait for Skip/Next for real; if they are still not
+   * there, `continue` and retry instead of bailing out. After a click, wait
+   * for the URL to leave onboarding or the action to go hidden (next step)
+   * rather than a fixed sleep.
    */
   async completeOnboarding(maxSteps = 5): Promise<void> {
+    const wizardAction = this.skipButton.or(this.nextButton).first();
+
     for (let i = 0; i < maxSteps && this.isOnOnboardingRoute(); i += 1) {
       const controlAppeared = this.dialog()
-        .or(this.skipButton)
-        .or(this.nextButton)
+        .or(wizardAction)
         .first()
         .waitFor({ state: 'visible', timeout: 8000 })
         .catch(() => {});
@@ -122,29 +141,74 @@ export class OnboardingPage extends BasePage {
         .catch(() => {});
       await Promise.race([controlAppeared, leftOnboarding]);
 
+      if (!this.isOnOnboardingRoute()) {
+        return;
+      }
+
       await this.dismissBlockingDialogIfPresent();
 
-      if (await this.skipButton.isVisible().catch(() => false)) {
-        await this.clickDespiteBlockingDialog(this.skipButton);
-      } else if (await this.nextButton.isVisible().catch(() => false)) {
-        await this.clickDespiteBlockingDialog(this.nextButton);
-      } else {
-        break;
+      try {
+        await wizardAction.waitFor({ state: 'visible', timeout: 8000 });
+      } catch {
+        continue;
       }
-      await this.page.waitForTimeout(300);
+
+      const stepHeading = this.page
+        .getByRole('heading', {
+          level: 1,
+          name: /let's get to know you|connect your social|mawthooq/i,
+        })
+        .first();
+      const headingBefore = (await stepHeading.textContent().catch(() => '')) ?? '';
+
+      if (await this.skipButton.isVisible()) {
+        await this.clickDespiteBlockingDialog(this.skipButton);
+      } else {
+        await this.clickDespiteBlockingDialog(this.nextButton);
+      }
+
+      // Skip stays visible on every step, so waiting for it to hide would
+      // always burn the timeout. The step's level-1 heading changing — or
+      // the URL leaving /onboarding on the last skip — is the real signal.
+      await Promise.race([
+        this.page
+          .waitForURL((url) => !/\/onboarding/i.test(url.toString()), { timeout: 5000 })
+          .catch(() => {}),
+        headingBefore
+          ? expect(stepHeading)
+              .not.toHaveText(headingBefore, { timeout: 5000 })
+              .catch(() => {})
+          : Promise.resolve(),
+      ]);
     }
   }
 
   async expectOnboardingComplete(): Promise<void> {
-    await expect(this.page).not.toHaveURL(/\/onboarding/i);
+    await expect(this.page).not.toHaveURL(/\/onboarding/i, { timeout: 15_000 });
   }
 
+  /**
+   * Confirmed live via network trace: choosing a file only kicks off a
+   * signed-URL request, then a direct PUT of the image bytes straight to
+   * GCS (`storage.googleapis.com/...`) — `setFiles()` returns as soon as
+   * the browser starts that PUT, not when it finishes. Advancing the
+   * wizard before a ~2MB upload completes gets it aborted server-side (a
+   * `POST /uploads/cancel/:id` was observed), which silently breaks
+   * whatever backend logic marks Step 1 complete — despite the wizard
+   * itself advancing to Step 2 with no error shown. Waiting for that PUT's
+   * response here is what makes `completeProfileStepOne()` actually persist.
+   */
   async uploadProfileImage(filePath: string): Promise<void> {
     const [fileChooser] = await Promise.all([
       this.page.waitForEvent('filechooser'),
       this.avatarButton.click(),
     ]);
+    const uploadFinished = this.page.waitForResponse(
+      (res) => res.url().includes('storage.googleapis.com') && res.request().method() === 'PUT',
+      { timeout: 20_000 },
+    );
     await fileChooser.setFiles(filePath);
+    await uploadFinished;
   }
 
   /**
@@ -155,12 +219,23 @@ export class OnboardingPage extends BasePage {
    * "Egyptian Bazaar, ... Türkiye") — exact-text matching avoids picking one
    * of those by accident. Falls through silently if no exact match renders,
    * leaving the typed free text as-is.
+   *
+   * Uses `waitFor()`, not `isVisible()` — confirmed live via trace that
+   * `isVisible()` checks the current DOM state instantly rather than
+   * polling, so it was resolving `false` in under 1ms, well before the
+   * suggestion's backing Google Places API call (~1.2s round trip)
+   * returned. That silently left the field on unselected free text, which
+   * the profile-completion API never actually persists as a valid location.
    */
   async fillLocation(location: string): Promise<void> {
     await this.locationInput.click();
     await this.locationInput.fill(location);
     const suggestion = this.page.getByText(location, { exact: true }).first();
-    if (await suggestion.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const appeared = await suggestion
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (appeared) {
       await suggestion.click();
     }
   }
@@ -184,6 +259,14 @@ export class OnboardingPage extends BasePage {
    * location, category — then advances via Next. Reuses
    * `clickDespiteBlockingDialog()` for the Next click since the same
    * "Notifications Blocked" dialog documented on this class can intercept here too.
+   *
+   * The settle wait before Next is load-bearing, not cosmetic: no network
+   * trace ever shows a dedicated "save step 1" request — location/category
+   * apparently persist through a debounced autosave with no visible
+   * loading/success indicator. Confirmed empirically against sandbox:
+   * clicking Next immediately after selecting them (0 wait) left both
+   * fields still listed as pending in the profile-completion banner
+   * afterward in every run; a 3s settle here made it persist reliably.
    */
   async completeProfileStepOne(input: {
     imagePath: string;
@@ -194,6 +277,7 @@ export class OnboardingPage extends BasePage {
     await this.uploadProfileImage(input.imagePath);
     await this.fillLocation(input.location);
     await this.selectCategory(input.category);
+    await this.page.waitForTimeout(3000);
     await this.clickDespiteBlockingDialog(this.nextButton);
   }
 
@@ -202,5 +286,16 @@ export class OnboardingPage extends BasePage {
     await expect(
       this.page.getByRole('heading', { name: /connect your social accounts/i }),
     ).toBeVisible();
+  }
+
+  /**
+   * Exits the wizard via the top-right "X" instead of "Skip For Now".
+   * Confirmed live: lands straight on the dashboard route with no
+   * confirmation prompt. Callers assert the resulting URL themselves rather
+   * than this method waiting on it, matching how the rest of this codebase
+   * treats a URL change (not "the click didn't throw") as the real signal.
+   */
+  async closeOnboarding(): Promise<void> {
+    await this.clickDespiteBlockingDialog(this.closeButton);
   }
 }
