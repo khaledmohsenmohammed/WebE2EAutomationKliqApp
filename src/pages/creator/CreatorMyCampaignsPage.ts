@@ -1,4 +1,4 @@
-import { type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from '../base/BasePage';
 import { PaginationComponent } from '../base/components/PaginationComponent';
 import { CampaignCardComponent } from '../shared/CampaignCardComponent';
@@ -61,5 +61,24 @@ export class CreatorMyCampaignsPage extends BasePage {
 
   async openRowAction(campaignName: string | RegExp, action: string | RegExp): Promise<void> {
     await this.campaignTable.openRowAction(campaignName, action);
+  }
+
+  /**
+   * One pending-field row inside the "Profile Completion Required" banner
+   * (e.g. "Location", "Niches", "Mawthooq License", "Social Account
+   * Connection"). Confirmed live as a real `<ul>/<li>` list — a completed
+   * field is removed from it entirely, not just visually hidden.
+   */
+  profileCompletionItem(label: string): Locator {
+    return this.page.getByRole('listitem').filter({ hasText: label });
+  }
+
+  async expectProfileCompletionItemVisible(label: string): Promise<void> {
+    await expect(this.profileCompletionItem(label)).toBeVisible();
+  }
+
+  /** Asserts the field has been fully removed from the pending list, not just styled hidden. */
+  async expectProfileCompletionItemHidden(label: string): Promise<void> {
+    await expect(this.profileCompletionItem(label)).toHaveCount(0);
   }
 }

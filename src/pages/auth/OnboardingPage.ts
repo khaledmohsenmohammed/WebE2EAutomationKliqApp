@@ -47,6 +47,15 @@ export class OnboardingPage extends BasePage {
   readonly locationInput: Locator;
   /** Placeholder confirmed live: "Start typing to search...". */
   readonly categoryInput: Locator;
+  /**
+   * Top-right "X" that exits the wizard entirely, landing straight on the
+   * dashboard route with no confirmation. Confirmed live: its accessible
+   * name is the same "Close" used by the unrelated "Notifications Blocked"
+   * dialog's own buttons — `clickDespiteBlockingDialog()` dismisses that
+   * dialog before every click attempt, so by the time this one fires it's
+   * gone and there's no ambiguity in practice.
+   */
+  readonly closeButton: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -55,6 +64,7 @@ export class OnboardingPage extends BasePage {
     this.avatarButton = page.locator('button:has(svg.lucide-user)');
     this.locationInput = page.getByLabel(/^location$/i).or(page.getByPlaceholder(/enter your country and city/i));
     this.categoryInput = page.getByLabel(/select your category/i).or(page.getByPlaceholder(/start typing to search/i));
+    this.closeButton = page.getByRole('button', { name: /^close$/i });
   }
 
   private isOnOnboardingRoute(): boolean {
@@ -177,12 +187,28 @@ export class OnboardingPage extends BasePage {
     await expect(this.page).not.toHaveURL(/\/onboarding/i, { timeout: 15_000 });
   }
 
+  /**
+   * Confirmed live via network trace: choosing a file only kicks off a
+   * signed-URL request, then a direct PUT of the image bytes straight to
+   * GCS (`storage.googleapis.com/...`) — `setFiles()` returns as soon as
+   * the browser starts that PUT, not when it finishes. Advancing the
+   * wizard before a ~2MB upload completes gets it aborted server-side (a
+   * `POST /uploads/cancel/:id` was observed), which silently breaks
+   * whatever backend logic marks Step 1 complete — despite the wizard
+   * itself advancing to Step 2 with no error shown. Waiting for that PUT's
+   * response here is what makes `completeProfileStepOne()` actually persist.
+   */
   async uploadProfileImage(filePath: string): Promise<void> {
     const [fileChooser] = await Promise.all([
       this.page.waitForEvent('filechooser'),
       this.avatarButton.click(),
     ]);
+    const uploadFinished = this.page.waitForResponse(
+      (res) => res.url().includes('storage.googleapis.com') && res.request().method() === 'PUT',
+      { timeout: 20_000 },
+    );
     await fileChooser.setFiles(filePath);
+    await uploadFinished;
   }
 
   /**
@@ -193,12 +219,23 @@ export class OnboardingPage extends BasePage {
    * "Egyptian Bazaar, ... Türkiye") — exact-text matching avoids picking one
    * of those by accident. Falls through silently if no exact match renders,
    * leaving the typed free text as-is.
+   *
+   * Uses `waitFor()`, not `isVisible()` — confirmed live via trace that
+   * `isVisible()` checks the current DOM state instantly rather than
+   * polling, so it was resolving `false` in under 1ms, well before the
+   * suggestion's backing Google Places API call (~1.2s round trip)
+   * returned. That silently left the field on unselected free text, which
+   * the profile-completion API never actually persists as a valid location.
    */
   async fillLocation(location: string): Promise<void> {
     await this.locationInput.click();
     await this.locationInput.fill(location);
     const suggestion = this.page.getByText(location, { exact: true }).first();
-    if (await suggestion.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const appeared = await suggestion
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (appeared) {
       await suggestion.click();
     }
   }
@@ -222,6 +259,14 @@ export class OnboardingPage extends BasePage {
    * location, category — then advances via Next. Reuses
    * `clickDespiteBlockingDialog()` for the Next click since the same
    * "Notifications Blocked" dialog documented on this class can intercept here too.
+   *
+   * The settle wait before Next is load-bearing, not cosmetic: no network
+   * trace ever shows a dedicated "save step 1" request — location/category
+   * apparently persist through a debounced autosave with no visible
+   * loading/success indicator. Confirmed empirically against sandbox:
+   * clicking Next immediately after selecting them (0 wait) left both
+   * fields still listed as pending in the profile-completion banner
+   * afterward in every run; a 3s settle here made it persist reliably.
    */
   async completeProfileStepOne(input: {
     imagePath: string;
@@ -232,6 +277,7 @@ export class OnboardingPage extends BasePage {
     await this.uploadProfileImage(input.imagePath);
     await this.fillLocation(input.location);
     await this.selectCategory(input.category);
+    await this.page.waitForTimeout(3000);
     await this.clickDespiteBlockingDialog(this.nextButton);
   }
 
@@ -240,5 +286,16 @@ export class OnboardingPage extends BasePage {
     await expect(
       this.page.getByRole('heading', { name: /connect your social accounts/i }),
     ).toBeVisible();
+  }
+
+  /**
+   * Exits the wizard via the top-right "X" instead of "Skip For Now".
+   * Confirmed live: lands straight on the dashboard route with no
+   * confirmation prompt. Callers assert the resulting URL themselves rather
+   * than this method waiting on it, matching how the rest of this codebase
+   * treats a URL change (not "the click didn't throw") as the real signal.
+   */
+  async closeOnboarding(): Promise<void> {
+    await this.clickDespiteBlockingDialog(this.closeButton);
   }
 }
